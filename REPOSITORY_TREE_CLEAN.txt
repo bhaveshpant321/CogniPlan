@@ -1,0 +1,31 @@
+﻿cogniplan/
+|-- .gitignore
+|-- EngineeringProtocol.md
+|-- projectdescription.md
+|-- README.md
+|-- REPOSITORY_TREE_CLEAN.txt
+|-- .github/
+|   `-- workflows/
+|       `-- ci.yml
+|-- role1-systems-logic/
+|   |-- package.json
+|   `-- selfnotes.md
+|-- role2-realtime-engine/
+|   `-- package.json
+`-- role3-ux-experience/
+    |-- .gitignore
+    |-- eslint.config.mjs
+    |-- next.config.ts
+    |-- next-env.d.ts
+    |-- package.json
+    |-- package-lock.json
+    |-- postcss.config.mjs
+    |-- README.md
+    |-- tsconfig.json
+    |-- public/
+    `-- src/
+        `-- app/
+            |-- favicon.ico
+            |-- globals.css
+            |-- layout.tsx
+            `-- page.tsx
