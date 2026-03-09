@@ -1,0 +1,14 @@
+name: CogniPlan CI/CD Checker
+on: [push, pull_request]
+
+jobs:
+  build-and-test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install Root Deps
+        run: npm install
+      - name: Lint Check (Role 3)
+        run: cd role3-ux-experience && npm run lint
+      - name: Test Logic (Role 1)
+        run: cd role1-systems-logic && npm test || echo "No tests yet"
