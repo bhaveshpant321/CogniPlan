@@ -1,3 +1,4 @@
+
 # Contributing to CogniPlan
 
 This document is the quick-start guide for teammates contributing to this repository.
