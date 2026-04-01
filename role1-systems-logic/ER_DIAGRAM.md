@@ -1,13 +1,13 @@
-# CogniPlan Role 1: Final ER Diagram (Week 1)
+# CogniPlan: Final ER Diagram
 
-This is the finalized ER design for Role 1 Week 1. It incorporates all the necessary tables, relationships, constraints, and indexes to support the SRS logic and API contracts defined in the project blueprint. This diagram will serve as the foundation for the database schema implementation and API development in the coming weeks.
+This is the finalized ER design for the PostgreSQL. It incorporates all the necessary tables, relationships, constraints, and indexes to support the SRS logic and API contracts defined in the project blueprint. This diagram will serve as the foundation for the database schema implementation and API development in the coming weeks.
 
 ## 1) Scope and intent
 
 This schema is designed to support:
 - Topic queue response (`GET /api/v1/topics/queue`)
 - Review submission request (`POST /api/v1/topics/review`)
-- Future SM-2 scheduling logic (Week 2)
+- SM-2 scheduling logic
 
 ## 2) Final ER diagram
 
