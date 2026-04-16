@@ -3,8 +3,9 @@ import { useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { Clock, BookOpen, ChevronDown } from "lucide-react";
 import { TopicCardProps } from "@/types";
-import { STATUS_STYLES, SCORE_LABELS, SCORE_STYLES } from "@/styles/tokens";
+import { STATUS_STYLES, SCORE_STYLES } from "@/styles/tokens";
 import Badge from "./ui/Badge";
+import Button from "./ui/Button";
 
 function timeAgo(date: Date): string {
   const diff = Math.floor((Date.now() - date.getTime()) / 1000);
@@ -49,10 +50,7 @@ export default function TopicCard({ title, subject, status, lastReviewed, onRevi
               <p className="text-xs text-slate-400 font-medium">How well did you recall this?</p>
               <div className="flex gap-2 flex-wrap">
                 {[1,2,3,4,5].map(score => (
-                  <button key={score} onClick={() => handleScore(score)}
-                    className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold transition-all duration-150 ${SCORE_STYLES[score]}`}>
-                    {score}<span className="text-[10px] opacity-60 font-normal">{SCORE_LABELS[score]}</span>
-                  </button>
+                  <Button key={score} variant="score" score={score} onClick={() => handleScore(score)} className="rounded-lg" />
                 ))}
               </div>
             </div>
