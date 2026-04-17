@@ -6,20 +6,33 @@ import { TopicStatus } from "@/types";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { fetchStats, fetchTopics, submitReview } from "@/lib/mockApi";
 import TopicCard from "@/components/TopicCard";
-import StatCard  from "@/components/StatsCard";
-import Pomodoro  from "@/components/Pomodoro";
+import StatCard from "@/components/StatsCard";
+import Pomodoro from "@/components/Pomodoro";
 import InputField from "@/components/ui/InputField";
 import Button from "@/components/ui/Button";
 
+// Define interfaces to replace 'any'
+interface Topic {
+  id: string;
+  title: string;
+  subject: string;
+  status: TopicStatus;
+  lastReviewed: string;
+}
+
+interface TopicsData {
+  topics: Topic[];
+}
+
 const FILTERS: { label: string; value: TopicStatus | "all" }[] = [
-  { label:"All",      value:"all"      },
-  { label:"Critical", value:"critical" },
-  { label:"Due",      value:"due"      },
-  { label:"Learning", value:"learning" },
-  { label:"Mastered", value:"mastered" },
+  { label: "All", value: "all" },
+  { label: "Critical", value: "critical" },
+  { label: "Due", value: "due" },
+  { label: "Learning", value: "learning" },
+  { label: "Mastered", value: "mastered" },
 ];
 
-const STATUS_ORDER: Record<TopicStatus, number> = { critical:0, due:1, learning:2, mastered:3 };
+const STATUS_ORDER: Record<TopicStatus, number> = { critical: 0, due: 1, learning: 2, mastered: 3 };
 
 export default function Dashboard() {
   const [activeFilter, setActiveFilter] = useState<TopicStatus | "all">("all");
@@ -27,11 +40,12 @@ export default function Dashboard() {
   const [statusText, setStatusText] = useState("Add a topic to your queue.");
   const queryClient = useQueryClient();
 
-  const { data: topicsData, isLoading: topicsLoading } = useQuery({
+  const { data: topicsData, isLoading: topicsLoading } = useQuery<TopicsData>({
     queryKey: ["topics"],
     queryFn: fetchTopics,
     staleTime: 1000 * 60,
   });
+
   const { data: statsData, isLoading: statsLoading } = useQuery({
     queryKey: ["stats"],
     queryFn: fetchStats,
@@ -49,10 +63,11 @@ export default function Dashboard() {
   const reviewMutation = useMutation({
     mutationFn: ({ id, score }: { id: string; score: number }) => submitReview(id, score),
     onSuccess: (_, variables) => {
-      queryClient.setQueryData(["topics"], (oldData: any) => {
-        if (!oldData?.topics) return oldData;
+      // Replaced 'any' with 'TopicsData | undefined'
+      queryClient.setQueryData<TopicsData>(["topics"], (oldData) => {
+        if (!oldData?.topics) return oldData as TopicsData;
         return {
-          topics: oldData.topics.filter((topic: any) => topic.id !== variables.id),
+          topics: oldData.topics.filter((topic: Topic) => topic.id !== variables.id),
         };
       });
       setStatusText(`Captured review for topic ${variables.id}.`);
@@ -77,12 +92,12 @@ export default function Dashboard() {
       <div className="flex flex-col gap-4 p-6 max-w-6xl mx-auto w-full">
         <div className="h-24 rounded-3xl bg-slate-800/70 animate-pulse" />
         <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-          {[1,2,3].map(i => (
+          {[1, 2, 3].map(i => (
             <div key={i} className="h-28 rounded-3xl bg-slate-800/70 animate-pulse" />
           ))}
         </div>
         <div className="space-y-3">
-          {[1,2,3,4].map(i => (
+          {[1, 2, 3, 4].map(i => (
             <div key={i} className="h-24 rounded-3xl bg-slate-800/70 animate-pulse" />
           ))}
         </div>
@@ -115,8 +130,8 @@ export default function Dashboard() {
       <section>
         <p className="text-xs font-semibold uppercase tracking-widest text-slate-500 mb-3">Today&apos;s Overview</p>
         <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-          <StatCard label="Due Today"      value={statsData?.stats.dueToday ?? 0}      accent="red"    icon={<AlertCircle  size={16} className="text-red-400"    />} />
-          <StatCard label="Total Mastered" value={statsData?.stats.totalMastered ?? 0} accent="green"  icon={<CheckCircle2 size={16} className="text-green-400"  />} />
+          <StatCard label="Due Today" value={statsData?.stats.dueToday ?? 0} accent="red" icon={<AlertCircle size={16} className="text-red-400" />} />
+          <StatCard label="Total Mastered" value={statsData?.stats.totalMastered ?? 0} accent="green" icon={<CheckCircle2 size={16} className="text-green-400" />} />
           <StatCard label="Current Streak" value={`${statsData?.stats.currentStreak ?? 0} days`} accent="yellow" icon={<Flame size={16} className="text-yellow-400" />} />
         </div>
       </section>
@@ -136,7 +151,7 @@ export default function Dashboard() {
           <motion.div layout className="flex flex-col gap-3">
             <AnimatePresence mode="popLayout">
               {visibleTopics.length === 0 ? (
-                <motion.div key="empty" initial={{ opacity:0 }} animate={{ opacity:1 }} exit={{ opacity:0 }}
+                <motion.div key="empty" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
                   className="flex flex-col items-center justify-center gap-3 py-16 rounded-xl border border-dashed border-slate-700 text-slate-500">
                   <CheckCircle2 size={32} className="text-green-500/50" />
                   <div className="text-center">
