@@ -7,6 +7,7 @@ export default function ThemeProvider({ children }: { children: React.ReactNode 
   const [mounted, setMounted] = useState(false);
 
   useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     setMounted(true);
   }, []);
 
@@ -21,6 +22,7 @@ export default function ThemeProvider({ children }: { children: React.ReactNode 
     }
   }, [isDarkMode, mounted]);
 
+  // If not mounted, return children without the dark class logic to avoid hydration flicker
   if (!mounted) {
     return <>{children}</>;
   }

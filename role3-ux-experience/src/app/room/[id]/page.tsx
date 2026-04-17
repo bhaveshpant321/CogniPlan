@@ -1,6 +1,7 @@
 "use client";
 
-import { useState, useRef, useEffect, useCallback } from "react";
+// 1. Added "use" to the React imports
+import { useState, useRef, useEffect, useCallback, use } from "react";
 import {
   Users, Mic, MicOff, Video, VideoOff,
   Pencil, Eraser, Square, Circle, Minus,
@@ -39,10 +40,16 @@ const PARTICIPANTS = [
 ];
 
 // ─── Main Component ───────────────────────────────────────────────────────────
-export default function WarRoom({ params }: { params: { id: string } }) {
+// 2. Updated the type definition for params to be a Promise
+export default function WarRoom({ params }: { params: Promise<{ id: string }> }) {
+  
+  // 3. Unwrap the params using the use() hook
+  const resolvedParams = use(params);
+  const id = resolvedParams.id;
+
   // ── Canvas refs ──
   const canvasRef     = useRef<HTMLCanvasElement>(null);
-  const overlayRef    = useRef<HTMLCanvasElement>(null); // live preview layer
+  const overlayRef    = useRef<HTMLCanvasElement>(null); 
   const containerRef  = useRef<HTMLDivElement>(null);
 
   // ── Drawing state ──
@@ -65,6 +72,13 @@ export default function WarRoom({ params }: { params: { id: string } }) {
   const [zoom,          setZoom]          = useState(1);
 
   // ─── Canvas setup ─────────────────────────────────────────────────────────
+  const redrawAll = useCallback((canvas: HTMLCanvasElement, strokeList: Stroke[]) => {
+    const ctx = canvas.getContext("2d");
+    if (!ctx) return;
+    ctx.clearRect(0, 0, canvas.width, canvas.height);
+    strokeList.forEach(s => drawStroke(ctx, s));
+  }, []);
+
   const resizeCanvas = useCallback(() => {
     const canvas  = canvasRef.current;
     const overlay = overlayRef.current;
@@ -78,7 +92,7 @@ export default function WarRoom({ params }: { params: { id: string } }) {
     overlay.height = height;
 
     redrawAll(canvas, strokes);
-  }, [strokes]);
+  }, [strokes, redrawAll]);
 
   useEffect(() => {
     resizeCanvas();
@@ -86,15 +100,6 @@ export default function WarRoom({ params }: { params: { id: string } }) {
     if (containerRef.current) ro.observe(containerRef.current);
     return () => ro.disconnect();
   }, [resizeCanvas]);
-
-  // ─── Redraw all strokes ───────────────────────────────────────────────────
-  function redrawAll(canvas: HTMLCanvasElement, strokeList: Stroke[]) {
-    const ctx = canvas.getContext("2d");
-    if (!ctx) return;
-    ctx.clearRect(0, 0, canvas.width, canvas.height);
-
-    strokeList.forEach(s => drawStroke(ctx, s));
-  }
 
   function drawStroke(ctx: CanvasRenderingContext2D, stroke: Stroke) {
     if (stroke.points.length === 0) return;
@@ -134,7 +139,6 @@ export default function WarRoom({ params }: { params: { id: string } }) {
     ctx.restore();
   }
 
-  // ─── Preview layer (shapes only) ─────────────────────────────────────────
   function drawPreview(point: Point) {
     const overlay = overlayRef.current;
     const stroke  = currentStroke.current;
@@ -151,20 +155,18 @@ export default function WarRoom({ params }: { params: { id: string } }) {
     drawStroke(ctx, previewStroke);
   }
 
-  // ─── Pointer helpers ──────────────────────────────────────────────────────
   function getPoint(e: React.PointerEvent<HTMLCanvasElement>): Point {
     const rect = canvasRef.current!.getBoundingClientRect();
     return { x: e.clientX - rect.left, y: e.clientY - rect.top };
   }
 
-  // ─── Pointer events ───────────────────────────────────────────────────────
   function onPointerDown(e: React.PointerEvent<HTMLCanvasElement>) {
     e.currentTarget.setPointerCapture(e.pointerId);
     const point = getPoint(e);
     startPoint.current = point;
 
     const newStroke: Stroke = {
-      id:      crypto.randomUUID(),
+      id:       crypto.randomUUID(),
       tool,
       colour,
       width:   tool === "eraser" ? brushSize * 3 : brushSize,
@@ -174,7 +176,6 @@ export default function WarRoom({ params }: { params: { id: string } }) {
     currentStroke.current = newStroke;
     setIsDrawing(true);
 
-    // For pencil/eraser start drawing immediately
     if (tool === "pencil" || tool === "eraser") {
       const canvas = canvasRef.current!;
       const ctx    = canvas.getContext("2d")!;
@@ -195,7 +196,6 @@ export default function WarRoom({ params }: { params: { id: string } }) {
     const point = getPoint(e);
 
     if (tool === "pencil" || tool === "eraser") {
-      // Live draw on main canvas
       const canvas = canvasRef.current!;
       const ctx    = canvas.getContext("2d")!;
       const prev   = currentStroke.current.points[currentStroke.current.points.length - 1];
@@ -214,7 +214,6 @@ export default function WarRoom({ params }: { params: { id: string } }) {
 
       currentStroke.current.points.push(point);
     } else {
-      // Shape tools: draw preview on overlay
       drawPreview(point);
     }
   }
@@ -228,13 +227,11 @@ export default function WarRoom({ params }: { params: { id: string } }) {
       points: [...currentStroke.current.points, point],
     };
 
-    // For shape tools, draw final stroke on main canvas
     if (tool !== "pencil" && tool !== "eraser") {
       const canvas = canvasRef.current!;
       const ctx    = canvas.getContext("2d")!;
       drawStroke(ctx, finalStroke);
 
-      // Clear overlay
       const overlay = overlayRef.current!;
       overlay.getContext("2d")!.clearRect(0, 0, overlay.width, overlay.height);
     }
@@ -244,7 +241,6 @@ export default function WarRoom({ params }: { params: { id: string } }) {
     setIsDrawing(false);
   }
 
-  // ─── Actions ──────────────────────────────────────────────────────────────
   function clearCanvas() {
     const canvas = canvasRef.current;
     if (!canvas) return;
@@ -262,52 +258,32 @@ export default function WarRoom({ params }: { params: { id: string } }) {
     const canvas = canvasRef.current;
     if (!canvas) return;
     const link    = document.createElement("a");
-    link.download = `studysync-warroom-${params.id}.png`;
+    link.download = `studysync-warroom-${id}.png`;
     link.href     = canvas.toDataURL();
     link.click();
   }
 
-  // ─── Cursor style ─────────────────────────────────────────────────────────
-  const cursorStyle = tool === "eraser" ? "cell" : tool === "pencil" ? "crosshair" : "crosshair";
+  const cursorStyle = tool === "eraser" ? "cell" : "crosshair";
 
   return (
     <div className="flex flex-col h-full bg-slate-950">
-
-      {/* ── Top bar ── */}
       <div className="flex items-center gap-3 px-5 py-2.5 bg-slate-900 border-b border-slate-700/50 shrink-0">
         <div className="flex items-center gap-2">
           <Users size={14} className="text-blue-400" />
-          <span className="text-sm font-semibold text-slate-200">
-            War Room
-          </span>
-          <span className="text-xs text-slate-500 font-mono">
-            #{params.id}
-          </span>
+          <span className="text-sm font-semibold text-slate-200">War Room</span>
+          <span className="text-xs text-slate-500 font-mono">#{id}</span>
         </div>
-
         <div className="flex items-center gap-1 ml-auto">
           <span className="w-2 h-2 rounded-full bg-green-500 animate-pulse" />
           <span className="text-xs text-green-400 font-medium">Live</span>
           <span className="text-slate-600 mx-2">·</span>
-          <span className="text-xs text-slate-400">
-            {PARTICIPANTS.length} participants
-          </span>
+          <span className="text-xs text-slate-400">{PARTICIPANTS.length} participants</span>
         </div>
       </div>
 
-      {/* ── Body ── */}
       <div className="flex flex-1 min-h-0">
-
-        {/* ── Canvas area ── */}
         <div className="flex flex-col flex-1 min-w-0">
-
-          {/* Canvas container */}
-          <div
-            ref={containerRef}
-            className="flex-1 relative overflow-hidden bg-slate-950"
-            style={{ cursor: cursorStyle }}
-          >
-            {/* Main drawing canvas */}
+          <div ref={containerRef} className="flex-1 relative overflow-hidden bg-slate-950" style={{ cursor: cursorStyle }}>
             <canvas
               ref={canvasRef}
               className="absolute inset-0 w-full h-full"
@@ -317,14 +293,11 @@ export default function WarRoom({ params }: { params: { id: string } }) {
               onPointerUp={onPointerUp}
               onPointerLeave={onPointerUp}
             />
-            {/* Overlay canvas for shape previews */}
             <canvas
               ref={overlayRef}
               className="absolute inset-0 w-full h-full pointer-events-none"
               style={{ transform: `scale(${zoom})`, transformOrigin: "top left" }}
             />
-
-            {/* Empty state hint */}
             {strokes.length === 0 && (
               <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
                 <div className="flex flex-col items-center gap-2 text-slate-700">
@@ -333,34 +306,20 @@ export default function WarRoom({ params }: { params: { id: string } }) {
                 </div>
               </div>
             )}
-
-            {/* Zoom controls */}
             <div className="absolute bottom-4 right-4 flex flex-col gap-1">
-              <button
-                onClick={() => setZoom(z => Math.min(z + 0.1, 3))}
-                className="w-8 h-8 rounded-lg bg-slate-800 border border-slate-700 text-slate-400 hover:text-slate-200 flex items-center justify-center transition-colors"
-              >
+              <button onClick={() => setZoom(z => Math.min(z + 0.1, 3))} className="w-8 h-8 rounded-lg bg-slate-800 border border-slate-700 text-slate-400 hover:text-slate-200 flex items-center justify-center transition-colors">
                 <ZoomIn size={14} />
               </button>
-              <button
-                onClick={() => setZoom(1)}
-                className="w-8 h-8 rounded-lg bg-slate-800 border border-slate-700 text-slate-500 hover:text-slate-200 flex items-center justify-center text-[10px] font-bold transition-colors"
-              >
+              <button onClick={() => setZoom(1)} className="w-8 h-8 rounded-lg bg-slate-800 border border-slate-700 text-slate-500 hover:text-slate-200 flex items-center justify-center text-[10px] font-bold transition-colors">
                 {Math.round(zoom * 100)}%
               </button>
-              <button
-                onClick={() => setZoom(z => Math.max(z - 0.1, 0.3))}
-                className="w-8 h-8 rounded-lg bg-slate-800 border border-slate-700 text-slate-400 hover:text-slate-200 flex items-center justify-center transition-colors"
-              >
+              <button onClick={() => setZoom(z => Math.max(z - 0.1, 0.3))} className="w-8 h-8 rounded-lg bg-slate-800 border border-slate-700 text-slate-400 hover:text-slate-200 flex items-center justify-center transition-colors">
                 <ZoomOut size={14} />
               </button>
             </div>
           </div>
 
-          {/* ── Drawing toolbar ── */}
           <div className="flex items-center gap-2 px-4 py-2.5 bg-slate-900 border-t border-slate-700/50 flex-wrap shrink-0">
-
-            {/* Tool buttons */}
             <div className="flex items-center gap-1 bg-slate-800 rounded-lg p-1 border border-slate-700">
               {([
                 { t: "pencil",    Icon: Pencil,    label: "Pencil"    },
@@ -375,9 +334,7 @@ export default function WarRoom({ params }: { params: { id: string } }) {
                   title={label}
                   className={[
                     "flex items-center gap-1.5 px-2.5 py-1.5 rounded-md text-xs font-semibold transition-all",
-                    tool === t
-                      ? "bg-blue-500 text-white shadow-sm"
-                      : "text-slate-400 hover:text-slate-200 hover:bg-slate-700",
+                    tool === t ? "bg-blue-500 text-white shadow-sm" : "text-slate-400 hover:text-slate-200 hover:bg-slate-700",
                   ].join(" ")}
                 >
                   <Icon size={13} />
@@ -386,36 +343,28 @@ export default function WarRoom({ params }: { params: { id: string } }) {
               ))}
             </div>
 
-            {/* Colour swatches */}
             <div className="flex items-center gap-1.5 bg-slate-800 rounded-lg p-1.5 border border-slate-700">
               {COLOURS.map(c => (
                 <button
                   key={c}
                   onClick={() => setColour(c)}
                   style={{ background: c }}
-                  title={c}
                   className={[
                     "w-5 h-5 rounded-full transition-all hover:scale-110",
-                    colour === c
-                      ? "ring-2 ring-offset-1 ring-offset-slate-800 ring-blue-400 scale-110"
-                      : "border border-slate-600",
+                    colour === c ? "ring-2 ring-offset-1 ring-offset-slate-800 ring-blue-400 scale-110" : "border border-slate-600",
                   ].join(" ")}
                 />
               ))}
             </div>
 
-            {/* Brush size */}
             <div className="flex items-center gap-1 bg-slate-800 rounded-lg p-1 border border-slate-700">
               {BRUSH_SIZES.map(s => (
                 <button
                   key={s}
                   onClick={() => setBrushSize(s)}
-                  title={`${s}px`}
                   className={[
                     "w-7 h-7 rounded-md flex items-center justify-center transition-all",
-                    brushSize === s
-                      ? "bg-blue-500"
-                      : "hover:bg-slate-700",
+                    brushSize === s ? "bg-blue-500" : "hover:bg-slate-700",
                   ].join(" ")}
                 >
                   <span
@@ -430,69 +379,27 @@ export default function WarRoom({ params }: { params: { id: string } }) {
               ))}
             </div>
 
-            {/* Opacity slider */}
             <div className="flex items-center gap-2">
               <span className="text-[10px] text-slate-500 font-medium">Opacity</span>
-              <input
-                type="range" min="0.1" max="1" step="0.1"
-                value={opacity}
-                onChange={e => setOpacity(Number(e.target.value))}
-                className="w-20 accent-blue-500"
-              />
-              <span className="text-[10px] text-slate-400 w-6">
-                {Math.round(opacity * 100)}%
-              </span>
+              <input type="range" min="0.1" max="1" step="0.1" value={opacity} onChange={e => setOpacity(Number(e.target.value))} className="w-20 accent-blue-500" />
+              <span className="text-[10px] text-slate-400 w-6">{Math.round(opacity * 100)}%</span>
             </div>
 
-            {/* Action buttons */}
             <div className="flex items-center gap-1 ml-auto">
-              <button
-                onClick={undoLast}
-                title="Undo"
-                disabled={strokes.length === 0}
-                className="p-2 rounded-lg text-slate-400 hover:text-slate-200 hover:bg-slate-800 disabled:opacity-30 transition-colors border border-transparent hover:border-slate-700"
-              >
+              <button onClick={undoLast} disabled={strokes.length === 0} className="p-2 rounded-lg text-slate-400 hover:text-slate-200 hover:bg-slate-800 disabled:opacity-30 transition-colors border border-transparent hover:border-slate-700">
                 <RotateCcw size={14} />
               </button>
-              <button
-                onClick={downloadCanvas}
-                title="Download"
-                className="p-2 rounded-lg text-slate-400 hover:text-slate-200 hover:bg-slate-800 transition-colors border border-transparent hover:border-slate-700"
-              >
+              <button onClick={downloadCanvas} className="p-2 rounded-lg text-slate-400 hover:text-slate-200 hover:bg-slate-800 transition-colors border border-transparent hover:border-slate-700">
                 <Download size={14} />
               </button>
-              <button
-                onClick={clearCanvas}
-                title="Clear all"
-                className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-red-400 hover:bg-red-500/10 hover:text-red-300 transition-colors border border-transparent hover:border-red-500/20 text-xs font-semibold"
-              >
+              <button onClick={clearCanvas} className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-red-400 hover:bg-red-500/10 hover:text-red-300 transition-colors border border-transparent hover:border-red-500/20 text-xs font-semibold">
                 <Trash2 size={13} /> Clear
               </button>
-
-              {/* Mic + Camera */}
               <div className="flex items-center gap-1 ml-2 pl-2 border-l border-slate-700">
-                <button
-                  onClick={() => setMuted(v => !v)}
-                  title={muted ? "Unmute" : "Mute"}
-                  className={[
-                    "p-2 rounded-lg border transition-colors",
-                    muted
-                      ? "bg-red-500/20 border-red-500/30 text-red-400"
-                      : "bg-slate-800 border-slate-700 text-slate-400 hover:text-slate-200",
-                  ].join(" ")}
-                >
+                <button onClick={() => setMuted(v => !v)} className={["p-2 rounded-lg border transition-colors", muted ? "bg-red-500/20 border-red-500/30 text-red-400" : "bg-slate-800 border-slate-700 text-slate-400 hover:text-slate-200"].join(" ")}>
                   {muted ? <MicOff size={14} /> : <Mic size={14} />}
                 </button>
-                <button
-                  onClick={() => setCamOff(v => !v)}
-                  title={camOff ? "Camera on" : "Camera off"}
-                  className={[
-                    "p-2 rounded-lg border transition-colors",
-                    camOff
-                      ? "bg-red-500/20 border-red-500/30 text-red-400"
-                      : "bg-slate-800 border-slate-700 text-slate-400 hover:text-slate-200",
-                  ].join(" ")}
-                >
+                <button onClick={() => setCamOff(v => !v)} className={["p-2 rounded-lg border transition-colors", camOff ? "bg-red-500/20 border-red-500/30 text-red-400" : "bg-slate-800 border-slate-700 text-slate-400 hover:text-slate-200"].join(" ")}>
                   {camOff ? <VideoOff size={14} /> : <Video size={14} />}
                 </button>
               </div>
@@ -500,71 +407,27 @@ export default function WarRoom({ params }: { params: { id: string } }) {
           </div>
         </div>
 
-        {/* ── Right sidebar ── */}
         <div className="flex flex-col w-52 shrink-0 border-l border-slate-700/50 bg-slate-900 overflow-y-auto">
-
-          {/* Video feeds section */}
           <div className="flex flex-col">
-            <button
-              onClick={() => setShowPart(v => !v)}
-              className="flex items-center justify-between px-3 py-2.5 border-b border-slate-700/50 text-xs font-semibold text-slate-400 hover:text-slate-200 transition-colors"
-            >
-              <span className="flex items-center gap-1.5">
-                <Users size={12} />
-                Participants ({PARTICIPANTS.length})
-              </span>
+            <button onClick={() => setShowPart(v => !v)} className="flex items-center justify-between px-3 py-2.5 border-b border-slate-700/50 text-xs font-semibold text-slate-400 hover:text-slate-200 transition-colors">
+              <span className="flex items-center gap-1.5"><Users size={12} /> Participants ({PARTICIPANTS.length})</span>
               {showParticipants ? <ChevronUp size={12} /> : <ChevronDown size={12} />}
             </button>
-
             {showParticipants && (
               <div className="flex flex-col gap-2 p-2">
                 {PARTICIPANTS.map((p, i) => (
-                  <div
-                    key={p.name}
-                    className="rounded-lg bg-slate-800 border border-slate-700 overflow-hidden"
-                  >
-                    {/* Video area */}
-                    <div
-                      className="relative flex items-center justify-center"
-                      style={{ aspectRatio: "16/9" }}
-                    >
-                      {/* Simulated video bg */}
-                      <div
-                        className="absolute inset-0 opacity-10"
-                        style={{ background: `radial-gradient(circle at center, ${p.colour}, transparent)` }}
-                      />
-
-                      {camOff && i === 0 ? (
-                        <VideoOff size={18} className="text-slate-500" />
-                      ) : (
-                        <div
-                          className="w-9 h-9 rounded-full flex items-center justify-center text-sm font-bold text-white"
-                          style={{ background: p.colour }}
-                        >
-                          {p.initials}
-                        </div>
+                  <div key={p.name} className="rounded-lg bg-slate-800 border border-slate-700 overflow-hidden">
+                    <div className="relative flex items-center justify-center" style={{ aspectRatio: "16/9" }}>
+                      <div className="absolute inset-0 opacity-10" style={{ background: `radial-gradient(circle at center, ${p.colour}, transparent)` }} />
+                      {camOff && i === 0 ? <VideoOff size={18} className="text-slate-500" /> : (
+                        <div className="w-9 h-9 rounded-full flex items-center justify-center text-sm font-bold text-white" style={{ background: p.colour }}>{p.initials}</div>
                       )}
-
-                      {/* Name tag */}
                       <div className="absolute bottom-1 left-2 right-2 flex items-center justify-between">
-                        <span className="text-[10px] text-slate-300 font-medium">
-                          {p.name}
-                        </span>
-                        {/* Mic indicator */}
-                        {muted && i === 0 ? (
-                          <MicOff size={9} className="text-red-400" />
-                        ) : (
+                        <span className="text-[10px] text-slate-300 font-medium">{p.name}</span>
+                        {muted && i === 0 ? <MicOff size={9} className="text-red-400" /> : (
                           <div className="flex items-end gap-px h-3">
                             {[2, 4, 3, 5, 2].map((h, j) => (
-                              <div
-                                key={j}
-                                className="w-0.5 bg-green-400 rounded-full"
-                                style={{
-                                  height:    `${h * 2}px`,
-                                  animation: `pulse ${0.5 + j * 0.1}s ease-in-out infinite alternate`,
-                                  opacity:   i === 0 ? 1 : 0.4 + Math.random() * 0.4,
-                                }}
-                              />
+                              <div key={j} className="w-0.5 bg-green-400 rounded-full" style={{ height: `${h * 2}px`, animation: `pulse ${0.5 + j * 0.1}s ease-in-out infinite alternate`, opacity: i === 0 ? 1 : 0.4 + Math.random() * 0.4 }} />
                             ))}
                           </div>
                         )}
@@ -575,29 +438,15 @@ export default function WarRoom({ params }: { params: { id: string } }) {
               </div>
             )}
           </div>
-
-          {/* Shared Pomodoro section */}
           <div className="flex flex-col border-t border-slate-700/50">
-            <button
-              onClick={() => setShowPomodoro(v => !v)}
-              className="flex items-center justify-between px-3 py-2.5 border-b border-slate-700/50 text-xs font-semibold text-slate-400 hover:text-slate-200 transition-colors"
-            >
+            <button onClick={() => setShowPomodoro(v => !v)} className="flex items-center justify-between px-3 py-2.5 border-b border-slate-700/50 text-xs font-semibold text-slate-400 hover:text-slate-200 transition-colors">
               <span>⏱ Shared Timer</span>
               {showPomodoro ? <ChevronUp size={12} /> : <ChevronDown size={12} />}
             </button>
-
-            {showPomodoro && (
-              <div className="p-3">
-                <Pomodoro />
-              </div>
-            )}
+            {showPomodoro && <div className="p-3"><Pomodoro /></div>}
           </div>
-
-          {/* Stroke count */}
           <div className="mt-auto px-3 py-2 border-t border-slate-700/50">
-            <p className="text-[10px] text-slate-600">
-              {strokes.length} stroke{strokes.length !== 1 ? "s" : ""} on canvas
-            </p>
+            <p className="text-[10px] text-slate-600">{strokes.length} stroke{strokes.length !== 1 ? "s" : ""} on canvas</p>
           </div>
         </div>
       </div>
